@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getMyCollection, removeFromMyCollection, CollectionEntry } from '../services/collection'
 import { getPokemonById, PokemonDetail } from '../services/pokeapi';
-import { useAuth } from '../hooks/useAuth'
 
 interface EnrichedEntry extends CollectionEntry {
   details: PokemonDetail
@@ -10,7 +9,6 @@ interface EnrichedEntry extends CollectionEntry {
 const Home = () => {
   const [entries, setEntries] = useState<EnrichedEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const { logout } = useAuth()
 
   useEffect(() => {
     let cancelled = false
@@ -50,10 +48,7 @@ const Home = () => {
 
   return (
     <div className="p-6 max=w=5x1 mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2x1 font-bold">Mi coleccion</h1>
-        <button onClick={logout} className="text-sm text-red-600">Cerrar sesion</button>
-      </div>
+      <h1 className="text-2xl font-bold mb-6">Mi Colección</h1>
 
       {entries.length === 0 ? (
         <p className="text-gray-500">Aun no atrapas a este Pokemon</p>
