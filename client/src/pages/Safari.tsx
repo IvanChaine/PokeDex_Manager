@@ -1,7 +1,8 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getPokemonByName, getAllPokemonNames, PokemonDetail } from '../services/pokeapi'
+import { getPokemonByName, getAllPokemonNames, PokemonDetail, getTypeBadgeStyle } from '../services/pokeapi'
 import { addToMyCollection } from '../services/collection'
+import { identifyPokemonImage } from '../services/identify'
 
 const Safari = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -12,6 +13,9 @@ const Safari = () => {
   const [addedIds, setAddedIds] = useState<Set<number>>(new Set())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [identifying, setIdentifying] = useState(false)
 
   useEffect(() => {
     const loadNames = async () => {
@@ -20,6 +24,12 @@ const Safari = () => {
     }
     loadNames()
   }, [])
+
+  useEffect(() => {
+  return () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+  }
+}, [previewUrl])
 
   const handleInputChange = (value: string) => {
     setSearchTerm(value)
@@ -82,6 +92,34 @@ const Safari = () => {
     runSearch(name)
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+    setError('')
+  }
+
+  const handleIdentify = async () => {
+    if (!selectedFile) return
+
+    setIdentifying(true)
+    setError('')
+
+    try {
+      const pokemonName = await identifyPokemonImage(selectedFile)
+      await runSearch(pokemonName)
+      setSelectedFile(null)
+      setPreviewUrl(null)
+    } catch (err) {
+      console.error('Error al identificar el pokemon:', err)
+      setError('No se pudo identificar al pokemon en la imagen, intente tomando otra foto')
+    } finally {
+      setIdentifying(false)
+    }
+  }
+
   const handleNicknameChange = (pokemonId: number, value: string) => {
     setNicknames((prev) => ({ ...prev, [pokemonId]: value}))
   }
@@ -98,28 +136,28 @@ const Safari = () => {
   }
 
   return (
-    <div className="p-6 max-w-2x1 mx-auto">
-      <h1 className="text-2x1 font-bold mb-6">Safari - Buscar Pokemon</h1>
+    <div className="mx-auto max-w-3xl p-6">
+      <h1 className="pixel-title mb-6 text-base text-white drop-shadow">Safari - Buscar Pokemon</h1>
 
-      <form onSubmit={handleSearch} className="relative flex gap-2 mb-6">
+      <form onSubmit={handleSearch} className="relative flex flex-col gap-3 mb-6 sm:flex-row">
         <div className="flex-1 relative">
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => handleInputChange(e.target.value)}
-          placeholder="Introduce el nombre o numero de la pokedex del pokemon"
-          className="w-full border rounded px-3 py-2"
+          placeholder="Introduce el nombre del pokemon"
+          className="input-game w-full"
           autoComplete="off"
         />
 
         {suggestions.length > 0 && (
-          <ul className="absolute z-20 w-full bg-white border rounded mt-1 shadow-lg max-h-56 overflow-y-auto">
+          <ul className="dex-panel absolute z-30 mt-1 max-h-56 w-full overflow-y-auto py-1">
             {suggestions.map((name) => (
               <li key={name}>
                 <button
                   type="button"
                   onClick={() => handleSuggestionClick(name)}
-                  className="w-full text-left px-3 py-2 capitalize hover:bg-gray-100"
+                  className="w-full text-left px-3 py-2 capitalize hover:bg-dex-screen"
                 >
                   {name}
                 </button>
@@ -132,13 +170,75 @@ const Safari = () => {
         <button
           type="submit"
           disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+          className="btn-game bg-dex-yellow px-5 py-2 font-semibold disabled:opacity-50"
           >
             {loading ? 'Buscando Pokemon' : 'Buscar'}
           </button>
       </form>
 
-      {error && <p className="text-red-500 mb-4">{error}</p>}
+      
+
+      {error && (
+        <div className="dex-panel mb-4 p-4">
+          <p className="font-semibold text-dex-red-dark">{error}</p>
+        </div>
+      )}
+        
+        <div className="dex-panel p-5 mb-6">
+        <h2 className="pixel-title mb-4 text-xs text-dex-red">ESCÁNER</h2>
+
+        <div className="flex flex-col items-center gap-4 sm:flex-row">
+          {/* Vista previa en pantalla LCD */}
+          <div className="lcd-screen flex h-36 w-36 shrink-0 items-center justify-center p-2">
+            {previewUrl ? (
+              <img src={previewUrl} alt="Vista previa" className="max-h-full max-w-full object-contain" />
+            ) : (
+              <span className="text-xs text-gray-400">Sin imagen</span>
+            )}
+          </div>
+
+          <div className="flex w-full flex-col gap-3">
+            <p className="text-sm text-gray-500">
+              Agrega a tu coleccion usando una foto (carta TCG, imagen, etc)
+            </p>
+
+            <input
+              id="foto-pokemon"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label
+                htmlFor="foto-pokemon"
+                className="btn-game cursor-pointer px-4 py-2 text-sm font-semibold"
+              >
+                Elegir imagen
+              </label>
+
+              {selectedFile && (
+                <>
+                  <span className="max-w-40 truncate text-xs text-gray-400">{selectedFile.name}</span>
+
+                  <button
+                    onClick={handleIdentify}
+                    disabled={identifying}
+                    className="btn-game bg-dex-blue px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    {identifying ? 'Escaneando...' : 'Identificar'}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {identifying && (
+              <p className="pixel-title animate-pulse text-xs text-dex-blue">ANALIZANDO IMAGEN...</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       <AnimatePresence mode="wait">
         {results.length > 0 && (
@@ -157,42 +257,51 @@ const Safari = () => {
             {results.map((pokemon) =>(
               <div
                 key={pokemon.id}
-                className={`bg-white rounded-lg shadow-md p-4 text-center ${
+                className={`dex-panel p-4 text-center ${
                   results.length === 1 ? 'max-w-sm mx-auto p-6' : ''
                 }`}
                 >
             <img
-              src={pokemon.sprites.other['official-artwork'].front_default}
+              src={pokemon.sprites.other['official-artwork'].front_default ?? ''}
               alt={pokemon.name}
               className={results.length === 1 ? 'w-40 h-40 mx-auto' : 'w-24 h-24 mx-auto'}
             />
             <h2 className="font-bold capitalize mt-2">{pokemon.name}</h2>
-            <p className="text-xs text-gray-500 capitalize mb-3">
-              {pokemon.types.map((t) => t.type.name).join(', ')}
-            </p>
+
+            <div className='mt-1 flex flex-wrap justify-center gap-1'>
+              {pokemon.types.map((t) => (
+                <span
+                  key={t.type.name}
+                  className="rounded-full border-2 border-dex-ink px-2 py-0.5 text-[10px] font-bold capitalize"
+                  style={getTypeBadgeStyle(t.type.name)}
+                >
+                  {t.type.name}
+                </span>
+              ))}
+            </div>
 
             {addedIds.has(pokemon.id) ? (
-              <p className="text-green-600 text-sm font-medium">Pokemon agregado a la coleccion</p>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  placeholder="Apodo (opcional)"
-                  value={nicknames[pokemon.id] || ''}
-                  onChange ={(e) => handleNicknameChange(pokemon.id, e.target.value)}
-                  className="w-full border rounded px-2 py-1 text-sm mb-2"
-                />
-              <button
-                onClick={() => handleAdd(pokemon)}
-                className="w-full bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700"
-              >
-                Agregar a mi coleccion
-              </button>
-              </>
-            )}
-            </div>
+                  <p className="mt-3 text-sm font-semibold text-dex-green">Atrapado</p>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="Apodo (opcional)"
+                      value={nicknames[pokemon.id] || ''}
+                      onChange ={(e) => handleNicknameChange(pokemon.id, e.target.value)}
+                      className="input-game mb-2 mt-3 w-full text-sm"
+                    />
+                    <button
+                      onClick={() => handleAdd(pokemon)}
+                      className="btn-game w-full bg-dex-green px-3 py-1.5 text-sm font-semibold"
+                    >
+                      Atrapar
+                    </button>
+                  </>
+                )}
+              </div>
             ))}
-            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

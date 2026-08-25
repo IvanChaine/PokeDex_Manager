@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Home from './pages/Home'
 import Safari from './pages/Safari'
+import PokemonDetailPage from './pages/PokemonDetail'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
          <Route path="/" element={<><Navbar /> <Home /> </>} />
          <Route path="/safari" element={<> <Navbar /> <Safari /> </>} />
+         <Route path="/pokemon/:id" element={<><Navbar /> <PokemonDetailPage /></>} />
         </Route>
       </Routes>
     </AuthProvider>
